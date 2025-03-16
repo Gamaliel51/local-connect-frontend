@@ -3,29 +3,39 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
-import { backend_url, Business, imageLoader } from "@/utils/data";
-import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { useParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import { backend_url, Business, Product, imageLoader } from "@/utils/data";
 
-// Fix default marker icon issues in Next.js (optional)
+// Dynamically import react-leaflet components to disable SSR
+const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
+const Polyline = dynamic(() => import("react-leaflet").then((mod) => mod.Polyline), { ssr: false });
+
+import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-// delete L.Icon.Default.prototype._getIconUrl;
+
+// Fix default marker icon issues
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "/marker-1.png",
   iconUrl: "/marker-1.png",
   shadowUrl: "/marker-shadow.png",
 });
 
-export default function Home() {
+export default function CategoryPage() {
+  const { categoryname } = useParams();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  // Get user's current location and fetch nearby businesses using axios
+  // Get user's current location and fetch businesses by category
   useEffect(() => {
-    if (navigator.geolocation) {
+    if (typeof window !== "undefined" && navigator.geolocation && categoryname) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const userCoords: [number, number] = [
@@ -35,13 +45,12 @@ export default function Home() {
           setUserLocation(userCoords);
           try {
             const response = await axios.post(
-              `${backend_url}/business/fetch-nearby`,
-              { location: userCoords },
+              `${backend_url}/business/fetch-by-category`,
+              { category: categoryname, location: userCoords },
               { headers: { "Content-Type": "application/json" } }
             );
             setBusinesses(response.data.businesses);
           } catch (err: any) {
-            console.log("ERR: ", err);
             setError(err.response?.data?.error || err.message);
           } finally {
             setLoading(false);
@@ -52,35 +61,47 @@ export default function Home() {
           setLoading(false);
         }
       );
-    } else {
-      setError("Geolocation is not supported by this browser.");
-      setLoading(false);
     }
-  }, []);
+  }, [categoryname]);
 
-  // Calculate map center and positions if user and business are selected.
+  // When a business is selected, fetch its products
+  useEffect(() => {
+    async function fetchProducts() {
+      if (selectedBusiness) {
+        try {
+          const response = await axios.get(
+            `${backend_url}/product/by-business/${selectedBusiness.email}`
+          );
+          setProducts(response.data.products);
+        } catch (err: any) {
+          console.error("Error fetching products:", err);
+        }
+      }
+    }
+    fetchProducts();
+  }, [selectedBusiness]);
+
+  // Calculate map center and marker positions when a business is selected.
   let mapCenter: [number, number] | null = null;
   let userPos: [number, number] | null = null;
   let businessPos: [number, number] | null = null;
   if (userLocation && selectedBusiness && selectedBusiness.location) {
-    // business.location is [longitude, latitude] - switch to [lat, lon] for Leaflet.
-    console.log("BUS:", selectedBusiness)
     const userLat = userLocation[1];
     const userLon = userLocation[0];
-    const businessLat = selectedBusiness.location[1];
-    const businessLon = selectedBusiness.location[0];
-    mapCenter = [(userLat + businessLat) / 2, (userLon + businessLon) / 2];
+    const busLat = selectedBusiness.location[1];
+    const busLon = selectedBusiness.location[0];
+    mapCenter = [(userLat + busLat) / 2, (userLon + busLon) / 2];
     userPos = [userLat, userLon];
-    businessPos = [businessLat, businessLon];
+    businessPos = [busLat, busLon];
   }
 
   return (
     <div>
-      {/* Businesses Near You Section */}
+      {/* Businesses in Category Section */}
       <div className="pt-16 relative bg-gradient-to-br from-primary-50 to-white dark:from-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
-            Businesses Near You
+            {categoryname} Businesses Near You
           </h1>
           {loading && <p className="text-center">Loading...</p>}
           {error && <p className="text-center text-red-500">Error: {error}</p>}
@@ -120,16 +141,16 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Map Section for Selected Business */}
+      {/* Map & Details Section for Selected Business */}
       {selectedBusiness && userLocation && selectedBusiness.location && mapCenter && userPos && businessPos && (
         <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
             Route to {selectedBusiness.name}
           </h2>
-          <div className="w-full h-[450px]">
+          <div className="w-full h-[450px] mb-8">
             <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }}>
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <Marker position={userPos}>
@@ -141,42 +162,71 @@ export default function Home() {
               <Polyline positions={[userPos, businessPos]} color="blue" />
             </MapContainer>
           </div>
+
+          {/* Business Details Section */}
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-primary-800 dark:text-white mb-4">
+              Business Details
+            </h3>
+            <p>
+              <strong>About:</strong> {selectedBusiness.about}
+            </p>
+            <p>
+              <strong>Address:</strong> {selectedBusiness.address}
+            </p>
+            <p>
+              <strong>Category:</strong> {selectedBusiness.category}
+            </p>
+            {selectedBusiness.tags && (
+              <p>
+                <strong>Tags:</strong>{" "}
+                {Array.isArray(selectedBusiness.tags)
+                  ? selectedBusiness.tags.join(", ")
+                  : selectedBusiness.tags}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Categories Section with Link to Categories Page */}
-      <div className="bg-white dark:bg-gray-900 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-primary-800 dark:text-white">
-              Categories
-            </h2>
-            <Link
-              href="/categories"
-              className="text-primary-500 hover:text-primary-600"
-            >
-              Explore All
-            </Link>
-          </div>
-          {/* Sample static category cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Restaurants
+      {/* Products Section */}
+      {selectedBusiness && (
+        <div className="mb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 className="text-2xl font-bold text-primary-800 dark:text-white mb-4">
+            Products by {selectedBusiness.name}
+          </h3>
+          {products.length === 0 ? (
+            <p>No products found.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {products.map((product) => (
+                <div
+                  key={product.product_id}
+                  className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden"
+                >
+                  <Image
+                    loader={() => imageLoader(product.imageUrl)}
+                    src={product.imageUrl || "/placeholder.jpg"}
+                    alt={product.name}
+                    width={400}
+                    height={300}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="p-4">
+                    <h4 className="font-bold text-primary-800 dark:text-white">
+                      {product.name}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                        ₦{product.price.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Retail
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Fashion
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Services
-            </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Footer */}
       <footer className="bg-primary-50 dark:bg-gray-800">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

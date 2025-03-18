@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { backend_url, Business, imageLoader } from "@/utils/data";
 
+
 // Dynamically import the MapSection so it only loads on the client side.
 const MapSection = dynamic(() => import("@/components/MapSection"), { ssr: false });
 
@@ -118,10 +119,13 @@ export default function Home() {
         mapCenter &&
         userPos &&
         businessPos && (
-          <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
+          <div className="w-full h-[50vh] px-4 py-2 sm:px-6 lg:px-8 fixed left-0 bottom-0 z-[50] bg-gray-700">
             <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
               Route to {selectedBusiness.name}
             </h2>
+            <div onClick={() => setSelectedBusiness(null)} className="absolute top-2 right-5 text-2xl cursor-pointer">
+              X
+            </div>
             <MapSection
               mapCenter={mapCenter}
               userPos={userPos}

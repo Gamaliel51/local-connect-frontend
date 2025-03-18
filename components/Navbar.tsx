@@ -13,7 +13,7 @@ export default function Navbar() {
         {/* Logo and Home Link */}
         <Link href="/" className="flex items-center shrink-0">
           <Image 
-            className="w-24 h-28" 
+            className="w-10 h-10 mx-4 rounded-full" 
             height={100} 
             width={100} 
             src="/logo.png" 

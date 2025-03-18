@@ -1,20 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
 import { backend_url, Business, imageLoader } from "@/utils/data";
-import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 
-// Fix default marker icon issues in Next.js (optional)
-import L from "leaflet";
-// delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "/marker-1.png",
-  iconUrl: "/marker-1.png",
-  shadowUrl: "/marker-shadow.png",
-});
+// Dynamically import the MapSection so it only loads on the client side.
+const MapSection = dynamic(() => import("@/components/MapSection"), { ssr: false });
 
 export default function Home() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -23,7 +16,7 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
-  // Get user's current location and fetch nearby businesses using axios
+  // Get user's current location and fetch nearby businesses
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -41,7 +34,7 @@ export default function Home() {
             );
             setBusinesses(response.data.businesses);
           } catch (err: any) {
-            console.log("ERR: ", err);
+            console.error("Error fetching businesses:", err);
             setError(err.response?.data?.error || err.message);
           } finally {
             setLoading(false);
@@ -58,13 +51,11 @@ export default function Home() {
     }
   }, []);
 
-  // Calculate map center and positions if user and business are selected.
+  // Calculate map center and positions when a business is selected.
   let mapCenter: [number, number] | null = null;
   let userPos: [number, number] | null = null;
   let businessPos: [number, number] | null = null;
   if (userLocation && selectedBusiness && selectedBusiness.location) {
-    // business.location is [longitude, latitude] - switch to [lat, lon] for Leaflet.
-    console.log("BUS:", selectedBusiness)
     const userLat = userLocation[1];
     const userLon = userLocation[0];
     const businessLat = selectedBusiness.location[1];
@@ -76,7 +67,7 @@ export default function Home() {
 
   return (
     <div>
-      {/* Businesses Near You Section */}
+      {/* Businesses Section */}
       <div className="pt-16 relative bg-gradient-to-br from-primary-50 to-white dark:from-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
@@ -120,45 +111,37 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Map Section for Selected Business */}
-      {selectedBusiness && userLocation && selectedBusiness.location && mapCenter && userPos && businessPos && (
-        <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
-            Route to {selectedBusiness.name}
-          </h2>
-          <div className="w-full h-[450px]">
-            <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <Marker position={userPos}>
-                <Popup>You are here</Popup>
-              </Marker>
-              <Marker position={businessPos}>
-                <Popup>{selectedBusiness.name}</Popup>
-              </Marker>
-              <Polyline positions={[userPos, businessPos]} color="blue" />
-            </MapContainer>
+      {/* Map Section */}
+      {selectedBusiness &&
+        userLocation &&
+        selectedBusiness.location &&
+        mapCenter &&
+        userPos &&
+        businessPos && (
+          <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
+              Route to {selectedBusiness.name}
+            </h2>
+            <MapSection
+              mapCenter={mapCenter}
+              userPos={userPos}
+              businessPos={businessPos}
+              selectedBusinessName={selectedBusiness.name}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Categories Section with Link to Categories Page */}
+      {/* Categories Section */}
       <div className="bg-white dark:bg-gray-900 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-primary-800 dark:text-white">
               Categories
             </h2>
-            <Link
-              href="/categories"
-              className="text-primary-500 hover:text-primary-600"
-            >
+            <Link href="/categories" className="text-primary-500 hover:text-primary-600">
               Explore All
             </Link>
           </div>
-          {/* Sample static category cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Restaurants

@@ -143,18 +143,18 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            <Link href={`/categories/Restaurants`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Restaurants
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            </Link>
+            <Link href={`/categories/Retail`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Retail
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            </Link>
+            <Link href={`/categories/Fashion`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Fashion
-            </div>
-            <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            </Link>
+            <Link href={`/categories/Services`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Services
-            </div>
+            </Link>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-export const backend_url: string = 'http://localhost:8080'
+export const backend_url: string = "https://local-connect-backend.onrender.com" // 'http://localhost:8080'
 
 export const imageLoader = (link: string) => {
     return `${link}`

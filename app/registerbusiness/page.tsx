@@ -115,7 +115,7 @@ export default function RegisterBusiness() {
   };
 
   // Determine the map center. If location is set, convert [lng, lat] to [lat, lng]; otherwise, fallback to [0, 0]
-  const mapCenter = location ? [location[1], location[0]] : [0, 0];
+  const mapCenter: [number, number] = location ? [location[1], location[0]] : [0, 0];
 
   return (
     <div className="max-w-lg mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md px-8 py-28 flex flex-col items-center">

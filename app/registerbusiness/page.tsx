@@ -2,64 +2,28 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import dynamic from "next/dynamic";
 import { backend_url } from "@/utils/data";
 
-// Fix default marker icon issues with Next.js and Leaflet
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "/marker-1.png",
-  iconUrl: "/marker-1.png",
-  shadowUrl: "/marker-shadow.png",
-});
-
-// Component that listens for map clicks and sets the selected location
-function LocationSelector({
-  setLocation,
-  location,
-}: {
-  setLocation: (coords: [number, number]) => void;
-  location: [number, number] | null;
-}) {
-  useMapEvents({
-    click(e) {
-      // Leaflet gives latlng as [lat, lng]. We store as [lng, lat].
-      const coords: [number, number] = [e.latlng.lng, e.latlng.lat];
-      setLocation(coords);
-    },
-  });
-  return location ? <Marker position={[location[1], location[0]]} /> : null;
-}
-
-// Component to automatically recenter the map when center changes
-function RecenterAutomatically({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
-  return null;
-}
+// Dynamically import the MapSelector so it only loads on the client.
+const MapSelector = dynamic(() => import("@/components/MapSelector"), { ssr: false });
 
 export default function RegisterBusiness() {
-  // Form state fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  // Instead of profileImageUrl text input, we use a file.
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [about, setAbout] = useState("");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("");
-  // For tags, we use a separate input and array.
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // On mount, fetch the user's current location and set it as default.
+  // On mount, fetch the user's current location.
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -89,7 +53,7 @@ export default function RegisterBusiness() {
       setError("Please select your business location on the map.");
       return;
     }
-    // Create a FormData object to handle the file upload and other fields.
+    // Create FormData for file uploads and other fields.
     const formData = new FormData();
     formData.append("email", email);
     formData.append("name", name);
@@ -99,7 +63,6 @@ export default function RegisterBusiness() {
     formData.append("password", password);
     formData.append("about", about);
     formData.append("address", address);
-    // Append location as a JSON string, or as separate fields if your backend expects that.
     formData.append("location", JSON.stringify(location));
     formData.append("category", category);
     formData.append("tags", JSON.stringify(tags));
@@ -114,7 +77,7 @@ export default function RegisterBusiness() {
     }
   };
 
-  // Determine the map center. If location is set, convert [lng, lat] to [lat, lng]; otherwise, fallback to [0, 0]
+  // Convert location (stored as [lng, lat]) to map center as [lat, lng].
   const mapCenter: [number, number] = location ? [location[1], location[0]] : [0, 0];
 
   return (
@@ -311,14 +274,7 @@ export default function RegisterBusiness() {
           <p className="text-sm text-gray-700 dark:text-gray-200 mb-2">
             Click on the map to select your business location:
           </p>
-          <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }}>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <RecenterAutomatically center={mapCenter} />
-            <LocationSelector setLocation={setLocation} location={location} />
-          </MapContainer>
+          <MapSelector mapCenter={mapCenter} location={location} setLocation={setLocation} />
           {location && (
             <p className="text-sm text-gray-700 dark:text-gray-200 mt-2">
               Selected Location: Longitude: {location[0].toFixed(4)}, Latitude: {location[1].toFixed(4)}

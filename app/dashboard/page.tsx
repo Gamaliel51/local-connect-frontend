@@ -219,25 +219,25 @@ export default function UserDashboard() {
   // Handler: Checkout cart – create orders grouped by business
   const handleCheckout = async () => {
     if (!userEmail || cart.length === 0) return;
-    const grouped: { [key: string]: Product[] } = {};
-    cart.forEach((p: Product) => {
-      grouped[p.business_owned] = grouped[p.business_owned] || [];
-      grouped[p.business_owned].push(p);
-    });
+  
+    // Build productOrders array from cart items
+    const productOrders = cart.map((p: Product) => ({
+      product_id: p.product_id,
+      business_owned: p.business_owned,
+    }));
+  
     try {
-      const orderPromises = Object.keys(grouped).map((bizEmail) => {
-        return axios.post(
-          `${backend_url}/order/create`,
-          {
-            business_owned: bizEmail,
-            product_list: grouped[bizEmail].map((p) => p.product_id),
-            collection_method: "onsite",
-            customer_notes: [],
-          },
-          { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
-        );
-      });
-      await Promise.all(orderPromises);
+      await axios.post(
+        `${backend_url}/order/create`,
+        {
+          customer: userEmail,
+          productOrders,
+          collection_method: "onsite",
+          customer_notes: [],
+        },
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+      // Clear cart on success
       setCart(userEmail, []);
       setCartState([]);
       setGlobalMessage("Order placed successfully.");

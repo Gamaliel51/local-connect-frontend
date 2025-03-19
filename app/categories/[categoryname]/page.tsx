@@ -257,7 +257,7 @@ export default function CategoryPage() {
                 Email: info@local-connect.com
               </p>
               <p className="text-primary-700 dark:text-gray-300">
-                Phone: +234 333 736 8392
+                Phone: +2348133932164
               </p>
             </div>
           </div>

@@ -27,7 +27,7 @@ export default function BusinessLogin() {
       setSuccess("Logged in successfully!");
       setEmail("")
       setPassword("")
-      setTimeout(() => redirect('/businessdashboard'), 2500)
+      setTimeout(() => redirect('/businessdashboard'), 1500)
       // Optionally redirect or store token here
     } catch (err: any) {
       setError(err.response?.data?.error || err.message);

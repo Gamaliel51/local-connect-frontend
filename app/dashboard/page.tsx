@@ -203,6 +203,7 @@ export default function UserDashboard() {
     const updatedCart = [...currentCart, product];
     setCart(userEmail, updatedCart);
     setCartState(updatedCart);
+    alert('Added to cart')
   };
 
   // Handler: Remove product from cart
@@ -212,6 +213,7 @@ export default function UserDashboard() {
     const updatedCart = currentCart.filter((p: Product) => p.product_id !== productId);
     setCart(userEmail, updatedCart);
     setCartState(updatedCart);
+    alert('Removed from cart')
   };
 
   // Handler: Checkout cart – create orders grouped by business
@@ -448,7 +450,7 @@ export default function UserDashboard() {
                       loader={() => imageLoader(prod.imageUrl)}
                     />
                     <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price.toLocaleString()}</p>
                     <button
                       onClick={() => handleAddToCart(prod)}
                       className="mt-2 w-full bg-green-600 text-white py-1 rounded-md hover:bg-green-700"
@@ -483,7 +485,7 @@ export default function UserDashboard() {
                       />
                       <div>
                         <h3 className="font-bold text-gray-800 dark:text-white">{product.name}</h3>
-                        <p className="text-gray-600 dark:text-gray-300">₦{product.price}</p>
+                        <p className="text-gray-600 dark:text-gray-300">₦{product.price.toLocaleString()}</p>
                       </div>
                     </div>
                     <button
@@ -630,7 +632,7 @@ export default function UserDashboard() {
                       loader={() => imageLoader(prod.imageUrl)}
                     />
                     <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price.toLocaleString()}</p>
                     <button
                       onClick={() => handleAddToCart(prod)}
                       className="mt-2 w-full bg-green-600 text-white py-1 rounded-md hover:bg-green-700"

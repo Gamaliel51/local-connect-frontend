@@ -129,7 +129,7 @@ export default function Home() {
           </div>
 
           {/* Categories Section */}
-          <div className="bg-white dark:bg-gray-900 py-12">
+          <div className="bg-white dark:bg-gray-900 py-12 my-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-primary-800 dark:text-white">

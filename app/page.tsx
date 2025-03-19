@@ -127,6 +127,35 @@ export default function Home() {
               className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
+
+          {/* Categories Section */}
+          <div className="bg-white dark:bg-gray-900 py-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold text-primary-800 dark:text-white">
+                  Categories
+                </h2>
+                <Link href="/categories" className="text-primary-500 hover:text-primary-600">
+                  Explore All
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <Link href="/categories/Restaurants" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+                  Restaurants
+                </Link>
+                <Link href="/categories/Retail" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+                  Retail
+                </Link>
+                <Link href="/categories/Fashion" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+                  Fashion
+                </Link>
+                <Link href="/categories/Services" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+                  Services
+                </Link>
+              </div>
+            </div>
+          </div>
+
           {loading && <p className="text-center">Loading...</p>}
           {error && <p className="text-center text-red-500">Error: {error}</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -196,7 +225,7 @@ export default function Home() {
               selectedBusinessName={selectedBusiness.name}
             />
           </div>
-        )}
+      )}
 
       {/* Modal Popup for Business Details & Products */}
       {showModal && selectedBusiness && (
@@ -248,33 +277,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Categories Section */}
-      <div className="bg-white dark:bg-gray-900 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-primary-800 dark:text-white">
-              Categories
-            </h2>
-            <Link href="/categories" className="text-primary-500 hover:text-primary-600">
-              Explore All
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <Link href="/categories/Restaurants" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Restaurants
-            </Link>
-            <Link href="/categories/Retail" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Retail
-            </Link>
-            <Link href="/categories/Fashion" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Fashion
-            </Link>
-            <Link href="/categories/Services" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
-              Services
-            </Link>
-          </div>
-        </div>
-      </div>
 
       {/* Footer */}
       <footer className="bg-primary-50 dark:bg-gray-800">

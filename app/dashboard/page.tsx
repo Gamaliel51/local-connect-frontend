@@ -73,8 +73,11 @@ export default function UserDashboard() {
   const [globalError, setGlobalError] = useState("");
   const [globalMessage, setGlobalMessage] = useState("");
 
+  const [loading, setLoading] = useState(true)
+
   // On mount: check sessionStorage and load user info, cart, orders, and user location.
   useEffect(() => {
+    setLoading(true)
     const t = sessionStorage.getItem("token");
     const email = sessionStorage.getItem("email");
     if (!t || !email) {
@@ -136,6 +139,7 @@ export default function UserDashboard() {
             )
             .then((res) => {
               setBusinesses(res.data.businesses);
+              setLoading(false)
             })
             .catch((err) => {
               setGlobalError(err.response?.data?.error || err.message);
@@ -276,12 +280,12 @@ export default function UserDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-10">
       <div className="max-w-7xl mx-auto px-4">
-        <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8">User Dashboard</h1>
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8">&nbsp;</h1>
         {/* Tab Navigation */}
-        <div className="flex space-x-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:space-x-4 mb-8">
           <button
             onClick={() => setActiveTab("explore")}
-            className={`px-4 py-2 rounded-md ${
+            className={`px-4 py-2 rounded-md mb-2 sm:mb-0 ${
               activeTab === "explore"
                 ? "bg-blue-600 text-white"
                 : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -291,7 +295,7 @@ export default function UserDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("search")}
-            className={`px-4 py-2 rounded-md ${
+            className={`px-4 py-2 rounded-md mb-2 sm:mb-0 ${
               activeTab === "search"
                 ? "bg-blue-600 text-white"
                 : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -301,7 +305,7 @@ export default function UserDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("cart")}
-            className={`px-4 py-2 rounded-md ${
+            className={`px-4 py-2 rounded-md mb-2 sm:mb-0 ${
               activeTab === "cart"
                 ? "bg-blue-600 text-white"
                 : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -311,7 +315,7 @@ export default function UserDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("orders")}
-            className={`px-4 py-2 rounded-md ${
+            className={`px-4 py-2 rounded-md mb-2 sm:mb-0 ${
               activeTab === "orders"
                 ? "bg-blue-600 text-white"
                 : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -348,7 +352,7 @@ export default function UserDashboard() {
               />
             </div>
             {filteredBusinesses.length === 0 ? (
-              <p>No businesses found.</p>
+              <p>{loading ? 'Loading businesses....': 'No businesses found.'}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {filteredBusinesses.map((biz) => (

@@ -5,7 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { backend_url, Business, Product, Order, User, imageLoader } from "@/utils/data";
-import MapSection from "@/components/MapSection";
+import dynamic from "next/dynamic";
+
+// Dynamically import MapSection (only on the client)
+const MapSection = dynamic(() => import("@/components/MapSection"), { ssr: false });
 
 // Helper functions to get/set cart in localStorage keyed by email
 const getCart = (email: string): Product[] => {

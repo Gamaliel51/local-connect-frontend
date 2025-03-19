@@ -295,10 +295,10 @@ export default function Home() {
                 Quick Links
               </h3>
               <ul className="space-y-2 text-primary-700 dark:text-gray-300">
-                <li className="hover:text-primary-500 transition-colors">Home</li>
-                <li className="hover:text-primary-500 transition-colors">Shop</li>
-                <li className="hover:text-primary-500 transition-colors">Categories</li>
-                <li className="hover:text-primary-500 transition-colors">Contact</li>
+                <Link href={'/'} className="hover:text-primary-500 transition-colors">Home</Link>
+                {/* <li className="hover:text-primary-500 transition-colors">Shop</li> */}
+                <Link href={'/categories'} className="hover:text-primary-500 transition-colors">Categories</Link>
+                {/* <li className="hover:text-primary-500 transition-colors">Contact</li> */}
               </ul>
             </div>
             <div>
@@ -309,7 +309,7 @@ export default function Home() {
                 Email: info@local-connect.com
               </p>
               <p className="text-primary-700 dark:text-gray-300">
-                Phone: +2348133932164
+                Phone: +234 813 393 2164
               </p>
             </div>
           </div>

@@ -4,7 +4,11 @@ import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { backend_url, Business, Product, imageLoader } from "@/utils/data";
+
+// Dynamically import the MapSelector (client-side only)
+const MapSelector = dynamic(() => import("@/components/MapSelector"), { ssr: false });
 
 export default function BusinessDashboard() {
   const router = useRouter();
@@ -24,6 +28,7 @@ export default function BusinessDashboard() {
     address: "",
     category: "",
     profileImage: null as File | null,
+    location: null as [number, number] | null, // stored as [lng, lat]
   });
   const [infoTagInput, setInfoTagInput] = useState("");
   const [infoTags, setInfoTags] = useState<string[]>([]);
@@ -66,13 +71,13 @@ export default function BusinessDashboard() {
     setToken(t);
     setBusinessEmail(email);
 
-    // Fetch business info
+    // Fetch business info using the provided route. Only allowed fields are returned.
     axios
       .get(`${backend_url}/business/${email}`, {
         headers: { Authorization: `Bearer ${t}` },
       })
       .then((res) => {
-        const biz = res.data.business;
+        const biz: Business = res.data.business;
         setBusinessInfo(biz);
         setInfoForm({
           name: biz.name || "",
@@ -80,6 +85,7 @@ export default function BusinessDashboard() {
           address: biz.address || "",
           category: biz.category || "",
           profileImage: null,
+          location: biz.location || null, // expecting [lng, lat]
         });
         if (Array.isArray(biz.tags)) {
           setInfoTags(biz.tags);
@@ -98,7 +104,13 @@ export default function BusinessDashboard() {
       .catch((err) => console.error(err));
   }, [router]);
 
-  // Handler to update business info
+  // Compute map center for the location selector.
+  // MapSelector expects the center in [lat, lng] order.
+  const mapCenter: [number, number] = infoForm.location
+    ? [infoForm.location[1], infoForm.location[0]]
+    : [0, 0];
+
+  // Handler to update business info (including tags and location)
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -109,6 +121,7 @@ export default function BusinessDashboard() {
     formData.append("address", infoForm.address);
     formData.append("category", infoForm.category);
     formData.append("tags", JSON.stringify(infoTags));
+    formData.append("location", JSON.stringify(infoForm.location));
     if (infoForm.profileImage) {
       formData.append("profileImage", infoForm.profileImage);
     }
@@ -124,6 +137,11 @@ export default function BusinessDashboard() {
     } catch (err: any) {
       setError(err.response?.data?.error || err.message);
     }
+  };
+
+  // Handler for location selection from the map
+  const handleLocationChange = (coords: [number, number]) => {
+    setInfoForm((prev) => ({ ...prev, location: coords }));
   };
 
   // Handler to add a product
@@ -171,7 +189,7 @@ export default function BusinessDashboard() {
     setIsUpdateModalOpen(true);
   };
 
-  // Handler to update product using full form data
+  // Handler to update product data
   const handleUpdateProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -186,16 +204,12 @@ export default function BusinessDashboard() {
       formData.append("image", updateProductForm.productImage);
     }
     try {
-      await axios.put(
-        `${backend_url}/product/update/${updateProductForm.product_id}`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await axios.put(`${backend_url}/product/update/${updateProductForm.product_id}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setMessage("Product updated successfully.");
       const prodRes = await axios.get(`${backend_url}/product/by-business/${businessEmail}`);
       setProducts(prodRes.data.products);
@@ -228,35 +242,24 @@ export default function BusinessDashboard() {
         <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-8">
           Business Dashboard
         </h1>
+
         {/* Tab Navigation */}
         <div className="flex space-x-4 mb-8">
           <button
             onClick={() => setActiveTab("info")}
-            className={`px-4 py-2 rounded-md ${
-              activeTab === "info"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-md ${activeTab === "info" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"}`}
           >
             Business Info
           </button>
           <button
             onClick={() => setActiveTab("add")}
-            className={`px-4 py-2 rounded-md ${
-              activeTab === "add"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-md ${activeTab === "add" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"}`}
           >
             Add Product
           </button>
           <button
             onClick={() => setActiveTab("manage")}
-            className={`px-4 py-2 rounded-md ${
-              activeTab === "manage"
-                ? "bg-blue-600 text-white"
-                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-md ${activeTab === "manage" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"}`}
           >
             Manage Products
           </button>
@@ -272,6 +275,7 @@ export default function BusinessDashboard() {
               Update Business Info
             </h2>
             <form onSubmit={handleInfoSubmit} className="space-y-4">
+              {/* Name */}
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">Name</label>
                 <input
@@ -282,6 +286,7 @@ export default function BusinessDashboard() {
                   required
                 />
               </div>
+              {/* About */}
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">About</label>
                 <textarea
@@ -291,6 +296,7 @@ export default function BusinessDashboard() {
                   rows={3}
                 />
               </div>
+              {/* Address */}
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">Address</label>
                 <input
@@ -300,12 +306,13 @@ export default function BusinessDashboard() {
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+              {/* Category */}
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">Category</label>
                 <select
                   value={infoForm.category}
                   onChange={(e) => setInfoForm({ ...infoForm, category: e.target.value })}
-                  className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="px-3 py-2 rounded-md border border-gray-300 bg-gray-700 text-white dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select a category</option>
@@ -318,9 +325,9 @@ export default function BusinessDashboard() {
                   <option value="Beauty">Beauty</option>
                 </select>
               </div>
-              {/* Info Tags Input */}
+              {/* Tags Section */}
               <div className="flex flex-col">
-                <label className="text-sm text-gray-700 dark:text-gray-200">Add Tag</label>
+                <label className="text-sm text-gray-700 dark:text-gray-200">Tags</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -358,6 +365,23 @@ export default function BusinessDashboard() {
                   </div>
                 )}
               </div>
+              {/* Business Location Selection */}
+              <div className="w-full h-64 mb-20">
+                <p className="text-sm text-gray-700 dark:text-gray-200 mb-2">
+                  Click on the map to select your business location:
+                </p>
+                <MapSelector
+                  mapCenter={mapCenter}
+                  location={infoForm.location}
+                  setLocation={handleLocationChange}
+                />
+                {infoForm.location && (
+                  <p className="text-sm text-gray-700 dark:text-gray-200 mt-2">
+                    Selected Location: Longitude: {infoForm.location[0].toFixed(4)}, Latitude: {infoForm.location[1].toFixed(4)}
+                  </p>
+                )}
+              </div>
+              {/* Profile Image Update */}
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">Profile Image (optional)</label>
                 <input
@@ -370,6 +394,19 @@ export default function BusinessDashboard() {
                   }}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
+                {businessInfo.profileImageUrl && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-700 dark:text-gray-200">Current Profile Image:</p>
+                    <Image
+                      loader={() => imageLoader(businessInfo.profileImageUrl)}
+                      src={businessInfo.profileImageUrl}
+                      alt={businessInfo.name}
+                      width={100}
+                      height={100}
+                      className=""
+                    />
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
@@ -384,18 +421,14 @@ export default function BusinessDashboard() {
         {/* Add Product Tab */}
         {activeTab === "add" && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-md mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-              Add Product
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Add Product</h2>
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div className="flex flex-col">
                 <label className="text-sm text-gray-700 dark:text-gray-200">Product Name</label>
                 <input
                   type="text"
                   value={addProductForm.name}
-                  onChange={(e) =>
-                    setAddProductForm({ ...addProductForm, name: e.target.value })
-                  }
+                  onChange={(e) => setAddProductForm({ ...addProductForm, name: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -404,9 +437,7 @@ export default function BusinessDashboard() {
                 <label className="text-sm text-gray-700 dark:text-gray-200">About</label>
                 <textarea
                   value={addProductForm.about}
-                  onChange={(e) =>
-                    setAddProductForm({ ...addProductForm, about: e.target.value })
-                  }
+                  onChange={(e) => setAddProductForm({ ...addProductForm, about: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   rows={3}
                 />
@@ -417,9 +448,7 @@ export default function BusinessDashboard() {
                   type="number"
                   step="0.01"
                   value={addProductForm.price}
-                  onChange={(e) =>
-                    setAddProductForm({ ...addProductForm, price: e.target.value })
-                  }
+                  onChange={(e) => setAddProductForm({ ...addProductForm, price: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -478,10 +507,7 @@ export default function BusinessDashboard() {
                   required
                 />
               </div>
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200 mt-4"
-              >
+              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200 mt-4">
                 Add Product
               </button>
             </form>
@@ -491,39 +517,35 @@ export default function BusinessDashboard() {
         {/* Manage Products Tab */}
         {activeTab === "manage" && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-md mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-              Manage Products
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Manage Products</h2>
             {products.length === 0 ? (
               <p>No products found.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((product) => (
                   <div key={product.product_id} className="bg-white dark:bg-gray-700 rounded-lg shadow-md p-4">
-                    <Image
-                      src={product.imageUrl || "/placeholder.jpg"}
-                      alt={product.name}
-                      width={400}
-                      height={300}
-                      className="w-full h-48 object-cover mb-2"
-                      loader={() => imageLoader(product.imageUrl)}
-                    />
+                    <div className="w-full h-48 mb-2">
+                      <Image
+                        src={product.imageUrl || "/placeholder.jpg"}
+                        alt={product.name}
+                        width={300}
+                        height={300}
+                        className="w-full h-full object-fill"
+                        loader={() => imageLoader(product.imageUrl)}
+                      />
+                    </div>
                     <h3 className="font-bold text-gray-800 dark:text-white">{product.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{product.price.toLocaleString()}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      ₦{product.price.toLocaleString()}
+                    </p>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                       {product.available ? "Available" : "Not Available"}
                     </p>
                     <div className="mt-2 flex space-x-2">
-                      <button
-                        onClick={() => openUpdateModal(product)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-sm"
-                      >
+                      <button onClick={() => openUpdateModal(product)} className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-sm">
                         Update
                       </button>
-                      <button
-                        onClick={() => handleDeleteProduct(product.product_id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
-                      >
+                      <button onClick={() => handleDeleteProduct(product.product_id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm">
                         Delete
                       </button>
                     </div>
@@ -546,9 +568,7 @@ export default function BusinessDashboard() {
                 <input
                   type="text"
                   value={updateProductForm.name}
-                  onChange={(e) =>
-                    setUpdateProductForm({ ...updateProductForm, name: e.target.value })
-                  }
+                  onChange={(e) => setUpdateProductForm({ ...updateProductForm, name: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -557,9 +577,7 @@ export default function BusinessDashboard() {
                 <label className="text-sm text-gray-700 dark:text-gray-200">About</label>
                 <textarea
                   value={updateProductForm.about}
-                  onChange={(e) =>
-                    setUpdateProductForm({ ...updateProductForm, about: e.target.value })
-                  }
+                  onChange={(e) => setUpdateProductForm({ ...updateProductForm, about: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   rows={3}
                 />
@@ -570,9 +588,7 @@ export default function BusinessDashboard() {
                   type="number"
                   step="0.01"
                   value={updateProductForm.price}
-                  onChange={(e) =>
-                    setUpdateProductForm({ ...updateProductForm, price: e.target.value })
-                  }
+                  onChange={(e) => setUpdateProductForm({ ...updateProductForm, price: e.target.value })}
                   className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -582,9 +598,7 @@ export default function BusinessDashboard() {
                 <input
                   type="checkbox"
                   checked={updateProductForm.available}
-                  onChange={(e) =>
-                    setUpdateProductForm({ ...updateProductForm, available: e.target.checked })
-                  }
+                  onChange={(e) => setUpdateProductForm({ ...updateProductForm, available: e.target.checked })}
                 />
               </div>
               {/* Update Product Tags Input */}
@@ -619,12 +633,7 @@ export default function BusinessDashboard() {
                         className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-md text-sm flex items-center gap-1"
                       >
                         <span>{tag}</span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setUpdateProductTags(updateProductTags.filter((t) => t !== tag))
-                          }
-                        >
+                        <button type="button" onClick={() => setUpdateProductTags(updateProductTags.filter((t) => t !== tag))}>
                           &times;
                         </button>
                       </div>
@@ -653,10 +662,7 @@ export default function BusinessDashboard() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                >
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                   Update Product
                 </button>
               </div>

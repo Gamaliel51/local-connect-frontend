@@ -4,18 +4,22 @@ import dynamic from "next/dynamic";
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
-import { backend_url, Business, imageLoader } from "@/utils/data";
+import { useParams } from "next/navigation";
+import { backend_url, Business, Product, imageLoader } from "@/utils/data";
 
-
-// Dynamically import the MapSection so it only loads on the client side.
+// Dynamically import MapSection (only on the client)
 const MapSection = dynamic(() => import("@/components/MapSection"), { ssr: false });
 
 export default function Home() {
+  const { categoryname } = useParams();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [businessProducts, setBusinessProducts] = useState<Product[]>([]);
+  const [exploreSearch, setExploreSearch] = useState("");
 
   // Get user's current location and fetch nearby businesses
   useEffect(() => {
@@ -44,7 +48,8 @@ export default function Home() {
         () => {
           setError("Geolocation permission denied or unavailable.");
           setLoading(false);
-        }
+        },
+        { enableHighAccuracy: true }
       );
     } else {
       setError("Geolocation is not supported by this browser.");
@@ -52,19 +57,58 @@ export default function Home() {
     }
   }, []);
 
-  // Calculate map center and positions when a business is selected.
+  // When a business is selected, fetch its products
+  useEffect(() => {
+    async function fetchProducts() {
+      if (selectedBusiness) {
+        try {
+          const response = await axios.get(
+            `${backend_url}/product/by-business/${selectedBusiness.email}`
+          );
+          setBusinessProducts(response.data.products);
+        } catch (err: any) {
+          console.error("Error fetching products:", err);
+        }
+      }
+    }
+    fetchProducts();
+  }, [selectedBusiness]);
+
+  // Calculate map center and marker positions when a business is selected.
   let mapCenter: [number, number] | null = null;
   let userPos: [number, number] | null = null;
   let businessPos: [number, number] | null = null;
   if (userLocation && selectedBusiness && selectedBusiness.location) {
     const userLat = userLocation[1];
     const userLon = userLocation[0];
-    const businessLat = selectedBusiness.location[1];
-    const businessLon = selectedBusiness.location[0];
-    mapCenter = [(userLat + businessLat) / 2, (userLon + businessLon) / 2];
+    const busLat = selectedBusiness.location[1];
+    const busLon = selectedBusiness.location[0];
+    mapCenter = [(userLat + busLat) / 2, (userLon + busLon) / 2];
     userPos = [userLat, userLon];
-    businessPos = [businessLat, businessLon];
+    businessPos = [busLat, busLon];
   }
+
+  // Filter businesses by search term
+  const filteredBusinesses = businesses.filter((biz) => {
+    const term = exploreSearch.toLowerCase();
+    return (
+      biz.name.toLowerCase().includes(term) ||
+      (biz.category && biz.category.toLowerCase().includes(term)) ||
+      (Array.isArray(biz.tags) && biz.tags.some((t) => t.toLowerCase().includes(term)))
+    );
+  });
+
+  // Open the modal and set selected business
+  const openModal = (biz: Business) => {
+    setSelectedBusiness(biz);
+    setShowModal(true);
+  };
+
+  // Close the modal and clear selected business
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedBusiness(null);
+  };
 
   return (
     <div>
@@ -74,14 +118,23 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
             Businesses Near You
           </h1>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search by name, category, or tag..."
+              value={exploreSearch}
+              onChange={(e) => setExploreSearch(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
           {loading && <p className="text-center">Loading...</p>}
           {error && <p className="text-center text-red-500">Error: {error}</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {businesses.map((business) => (
+            {filteredBusinesses.map((business) => (
               <div
                 key={business.email}
                 className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg overflow-hidden transform transition-all hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
-                onClick={() => setSelectedBusiness(business)}
+                onClick={() => openModal(business)}
               >
                 <Image
                   src={business.profileImageUrl || "/placeholder.jpg"}
@@ -102,9 +155,6 @@ export default function Home() {
                         : business.about}
                     </p>
                   )}
-                  <button className="mt-4 w-full bg-primary-500 text-white py-2 px-4 rounded-lg hover:bg-primary-600 transition-colors">
-                    Connect
-                  </button>
                 </div>
               </div>
             ))}
@@ -112,7 +162,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Map Section */}
+      {/* Fixed Map Section at the bottom */}
       {selectedBusiness &&
         userLocation &&
         selectedBusiness.location &&
@@ -120,11 +170,24 @@ export default function Home() {
         userPos &&
         businessPos && (
           <div className="w-full h-[50vh] px-4 py-2 sm:px-6 lg:px-8 fixed left-0 bottom-0 z-[50] bg-gray-700">
-            <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
-              Route to {selectedBusiness.name}
-            </h2>
-            <div onClick={() => setSelectedBusiness(null)} className="absolute top-2 right-5 text-2xl cursor-pointer">
-              X
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-3xl font-bold text-primary-800 dark:text-white">
+                Route to {selectedBusiness.name}
+              </h2>
+              <button
+                onClick={() => setSelectedBusiness(null)}
+                className="text-2xl text-white cursor-pointer"
+              >
+                X
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowModal(true)}
+                className="underline text-blue-300 text-sm"
+              >
+                see more
+              </button>
             </div>
             <MapSection
               mapCenter={mapCenter}
@@ -134,6 +197,56 @@ export default function Home() {
             />
           </div>
         )}
+
+      {/* Modal Popup for Business Details & Products */}
+      {showModal && selectedBusiness && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[100]">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-lg max-w-3xl w-full overflow-y-auto max-h-screen">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                {selectedBusiness.name}
+              </h2>
+              <button
+                onClick={closeModal}
+                className="text-red-500 font-bold text-xl cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <p className="mb-2 text-gray-600 dark:text-gray-300">
+              <strong>About:</strong> {selectedBusiness.about}
+            </p>
+            <p className="mb-2 text-gray-600 dark:text-gray-300">
+              <strong>Address:</strong> {selectedBusiness.address}
+            </p>
+            <p className="mb-2 text-gray-600 dark:text-gray-300">
+              <strong>Category:</strong> {selectedBusiness.category}
+            </p>
+            {selectedBusiness.tags && (
+              <p className="mb-4 text-gray-600 dark:text-gray-300">
+                <strong>Tags:</strong>{" "}
+                {Array.isArray(selectedBusiness.tags)
+                  ? selectedBusiness.tags.join(", ")
+                  : selectedBusiness.tags}
+              </p>
+            )}
+            {/* Optionally, you can add a small map inside the modal as well */}
+            <div className="mt-6">
+              <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Route Map</h4>
+              <MapSection
+                mapCenter={mapCenter!}
+                userPos={userPos!}
+                businessPos={businessPos!}
+                selectedBusinessName={selectedBusiness.name}
+              />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
+              Products
+            </h3>
+            <BusinessProducts businessEmail={selectedBusiness.email} />
+          </div>
+        </div>
+      )}
 
       {/* Categories Section */}
       <div className="bg-white dark:bg-gray-900 py-12">
@@ -147,16 +260,16 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <Link href={`/categories/Restaurants`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            <Link href="/categories/Restaurants" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Restaurants
             </Link>
-            <Link href={`/categories/Retail`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            <Link href="/categories/Retail" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Retail
             </Link>
-            <Link href={`/categories/Fashion`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            <Link href="/categories/Fashion" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Fashion
             </Link>
-            <Link href={`/categories/Services`} className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
+            <Link href="/categories/Services" className="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg text-center">
               Services
             </Link>
           </div>
@@ -200,6 +313,44 @@ export default function Home() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// Component to fetch and display products for a business in the modal
+function BusinessProducts({ businessEmail }: { businessEmail: string }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    axios
+      .get(`${backend_url}/product/by-business/${businessEmail}`)
+      .then((res) => {
+        setProducts(res.data.products);
+      })
+      .catch((err) => console.error(err));
+  }, [businessEmail]);
+
+  return (
+    <div>
+      {products.length === 0 ? (
+        <p>No products found for this business.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {products.map((prod) => (
+            <div key={prod.product_id} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md shadow">
+              <Image
+                src={prod.imageUrl || "/placeholder.jpg"}
+                alt={prod.name}
+                width={400}
+                height={300}
+                className="w-full h-40 object-cover rounded"
+                loader={() => imageLoader(prod.imageUrl)}
+              />
+              <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-300">₹{prod.price}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

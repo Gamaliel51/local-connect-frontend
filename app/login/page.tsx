@@ -27,7 +27,7 @@ export default function UserLogin() {
       setSuccess("Logged in successfully!");
       setEmail('')
       setPassword('')
-      setTimeout(() => redirect('/dashboard'), 5000)
+      setTimeout(() => redirect('/dashboard'), 2500)
       // Optionally redirect or store token here
     } catch (err: any) {
       setError(err.response?.data?.error || err.message);

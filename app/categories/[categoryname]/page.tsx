@@ -131,9 +131,9 @@ export default function CategoryPage() {
                         : business.about}
                     </p>
                   )}
-                  <button className="mt-4 w-full bg-primary-500 text-white py-2 px-4 rounded-lg hover:bg-primary-600 transition-colors">
+                  {/* <button className="mt-4 w-full bg-primary-500 text-white py-2 px-4 rounded-lg hover:bg-primary-600 transition-colors">
                     Connect
-                  </button>
+                  </button> */}
                 </div>
               </div>
             ))}

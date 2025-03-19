@@ -346,7 +346,7 @@ function BusinessProducts({ businessEmail }: { businessEmail: string }) {
                 loader={() => imageLoader(prod.imageUrl)}
               />
               <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-300">₹{prod.price}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price}</p>
             </div>
           ))}
         </div>

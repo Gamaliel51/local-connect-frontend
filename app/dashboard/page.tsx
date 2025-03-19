@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { backend_url, Business, Product, Order, User, imageLoader } from "@/utils/data";
+import MapSection from "@/components/MapSection";
 
 // Helper functions to get/set cart in localStorage keyed by email
 const getCart = (email: string): Product[] => {
@@ -255,6 +256,20 @@ export default function UserDashboard() {
     }
   };
 
+  // Calculate map center and marker positions when a business is selected.
+  let mapCenter: [number, number] | null = null;
+  let userPos: [number, number] | null = null;
+  let businessPos: [number, number] | null = null;
+  if (userLocation && selectedBusiness && selectedBusiness.location) {
+    const userLat = userLocation[1];
+    const userLon = userLocation[0];
+    const busLat = selectedBusiness.location[1];
+    const busLon = selectedBusiness.location[0];
+    mapCenter = [(userLat + busLat) / 2, (userLon + busLon) / 2];
+    userPos = [userLat, userLon];
+    businessPos = [busLat, busLon];
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-10">
       <div className="max-w-7xl mx-auto px-4">
@@ -426,7 +441,7 @@ export default function UserDashboard() {
                       loader={() => imageLoader(prod.imageUrl)}
                     />
                     <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">₹{prod.price}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price}</p>
                     <button
                       onClick={() => handleAddToCart(prod)}
                       className="mt-2 w-full bg-green-600 text-white py-1 rounded-md hover:bg-green-700"
@@ -461,7 +476,7 @@ export default function UserDashboard() {
                       />
                       <div>
                         <h3 className="font-bold text-gray-800 dark:text-white">{product.name}</h3>
-                        <p className="text-gray-600 dark:text-gray-300">₹{product.price}</p>
+                        <p className="text-gray-600 dark:text-gray-300">₦{product.price}</p>
                       </div>
                     </div>
                     <button
@@ -583,6 +598,15 @@ export default function UserDashboard() {
                   : selectedBusiness.tags}
               </p>
             )}
+            <div className="mt-6">
+              <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Route Map</h4>
+              <MapSection
+                mapCenter={mapCenter!}
+                userPos={userPos!}
+                businessPos={businessPos!}
+                selectedBusinessName={selectedBusiness.name}
+              />
+            </div>
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Products</h3>
             {businessProducts.length === 0 ? (
               <p>No products found for this business.</p>
@@ -599,7 +623,7 @@ export default function UserDashboard() {
                       loader={() => imageLoader(prod.imageUrl)}
                     />
                     <h4 className="mt-2 font-bold text-gray-800 dark:text-white">{prod.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">₹{prod.price}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">₦{prod.price}</p>
                     <button
                       onClick={() => handleAddToCart(prod)}
                       className="mt-2 w-full bg-green-600 text-white py-1 rounded-md hover:bg-green-700"

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { backend_url, Business, Product, imageLoader } from "@/utils/data";
+import { backend_url, Business, Product, imageLoader, banks } from "@/utils/data";
 
 // Dynamically import the MapSelector (client-side only)
 const MapSelector = dynamic(() => import("@/components/MapSelector"), { ssr: false });
@@ -61,6 +61,15 @@ export default function BusinessDashboard() {
   const [updateProductTagInput, setUpdateProductTagInput] = useState("");
   const [updateProductTags, setUpdateProductTags] = useState<string[]>([]);
 
+  // Wallet state
+  const [wallet, setWallet] = useState<{ amount: number; transactions: any[] } | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [bankCode, setBankCode] = useState("");
+  const [withdrawMessage, setWithdrawMessage] = useState("");
+  const [withdrawError, setWithdrawError] = useState("");
+
+
   useEffect(() => {
     const t = sessionStorage.getItem("token");
     const email = sessionStorage.getItem("email");
@@ -102,6 +111,17 @@ export default function BusinessDashboard() {
         setProducts(res.data.products);
       })
       .catch((err) => console.error(err));
+
+    // Fetch wallet for this business
+    axios
+      .get(`${backend_url}/business/wallet/${email}`, {
+        headers: { Authorization: `Bearer ${t}` },
+      })
+      .then((res) => {
+        setWallet(res.data.wallet);
+      })
+      .catch((err) => console.error("Error fetching wallet:", err));
+    
   }, [router]);
 
   // Compute map center for the location selector.
@@ -236,6 +256,45 @@ export default function BusinessDashboard() {
     }
   };
 
+  // Handler: Withdraw from wallet using Flutterwave node library
+  const handleWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessEmail || !token) return;
+    setWithdrawError("");
+    setWithdrawMessage("");
+
+    try {
+      const res = await axios.post(
+        `${backend_url}/business/wallet/withdraw`,
+        {
+          business_email: businessEmail,
+          amount: Number(withdrawAmount),
+          account_number: accountNumber,
+          bank_code: bankCode,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setWithdrawMessage("Withdrawal initiated successfully.");
+      // Refresh wallet
+      const walletRes = await axios.get(`${backend_url}/business/wallet/${businessEmail}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setWallet(walletRes.data.wallet);
+      // Clear withdrawal form fields
+      setWithdrawAmount("");
+      setAccountNumber("");
+      setBankCode("");
+    } catch (err: any) {
+      setWithdrawError(err.response?.data?.error || err.message);
+    }
+  };
+
+
   return (
     <div className="min-h-screen mt-20 bg-gray-100 dark:bg-gray-900 py-10">
       <div className="max-w-7xl mx-auto px-4">
@@ -262,6 +321,12 @@ export default function BusinessDashboard() {
             className={`px-4 py-2 rounded-md ${activeTab === "manage" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"}`}
           >
             Manage Products
+          </button>
+          <button
+            onClick={() => setActiveTab("wallet")}
+            className={`px-4 py-2 rounded-md ${activeTab === "manage" ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"}`}
+          >
+            Wallet
           </button>
         </div>
 
@@ -555,6 +620,92 @@ export default function BusinessDashboard() {
             )}
           </div>
         )}
+
+        {/* Wallet tab */}
+        {activeTab === "wallet" && (
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">My Wallet</h2>
+            {wallet ? (
+              <div className="bg-white dark:bg-gray-700 p-4 rounded-md shadow">
+                <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                  Balance: ₦{wallet.amount.toLocaleString()}
+                </p>
+                <div className="mt-4">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Withdraw Funds</h3>
+                  <form onSubmit={handleWithdraw} className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-gray-700 dark:text-gray-200">
+                        Amount (₦)
+                      </label>
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="w-full px-3 py-2 bg-white text-black rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 dark:text-gray-200">
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-white text-black rounded-md border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 dark:text-gray-200">
+                        Bank
+                      </label>
+                      <select
+                        value={bankCode}
+                        onChange={(e) => setBankCode(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md bg-gray-700 text-white border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Select a bank</option>
+                        {banks.map((bank) => (
+                          <option key={bank.code} value={bank.code}>
+                            {bank.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {withdrawError && <p className="text-red-500">{withdrawError}</p>}
+                    {withdrawMessage && <p className="text-green-500">{withdrawMessage}</p>}
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200"
+                    >
+                      Withdraw
+                    </button>
+                  </form>
+                </div>
+                <div className="mt-6">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Recent Transactions</h3>
+                  {wallet.transactions && wallet.transactions.length > 0 ? (
+                    <ul className="space-y-2">
+                      {wallet.transactions.map((tx, idx) => (
+                        <li key={idx} className="text-sm text-gray-700 dark:text-gray-300">
+                          {tx.date ? new Date(tx.date).toLocaleString() : ""}: ₦{tx.amount} from {tx.from} (Ref: {tx.orderID})
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No transactions found.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p>Loading wallet...</p>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Update Product Modal */}

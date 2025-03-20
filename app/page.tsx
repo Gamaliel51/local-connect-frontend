@@ -115,9 +115,6 @@ export default function Home() {
       {/* Businesses Section */}
       <div className="pt-16 relative bg-gradient-to-br from-primary-50 to-white dark:from-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
-            Businesses Near You
-          </h1>
           <div className="mb-4">
             <input
               type="text"
@@ -155,6 +152,10 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
+            Businesses Near You
+          </h1>
 
           {loading && <p className="text-center">Loading...</p>}
           {error && <p className="text-center text-red-500">Error: {error}</p>}

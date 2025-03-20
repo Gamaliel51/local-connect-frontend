@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { backend_url, Business, Product, Order, User, imageLoader } from "@/utils/data";
 import dynamic from "next/dynamic";
+import { closePaymentModal, useFlutterwave } from 'flutterwave-react-v3';
 
 // Dynamically import MapSection (only on the client)
 const MapSection = dynamic(() => import("@/components/MapSection"), { ssr: false });
@@ -61,6 +62,8 @@ export default function UserDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
 
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
   // Profile form state
   const [profileForm, setProfileForm] = useState({
     name: "",
@@ -74,12 +77,17 @@ export default function UserDashboard() {
   const [globalMessage, setGlobalMessage] = useState("");
 
   const [loading, setLoading] = useState(true)
+  const [currentNote, setCurrentNote] = useState('')
+  const [orderNotes, setOrderNotes] = useState<string[]>([])
+  const [orderID, setOrderID] = useState('')
 
   // On mount: check sessionStorage and load user info, cart, orders, and user location.
   useEffect(() => {
     setLoading(true)
+    setOrderID(crypto.randomUUID())
     const t = sessionStorage.getItem("token");
     const email = sessionStorage.getItem("email");
+    console.log("EMAIL: ", email)
     if (!t || !email) {
       router.push("/login");
       return;
@@ -104,8 +112,24 @@ export default function UserDashboard() {
         setGlobalError(err.response?.data?.error || err.message);
       });
 
-    // Load cart from localStorage
-    setCartState(getCart(email));
+    // Fetch cart from backend Cart model
+    axios
+      .get(`${backend_url}/cart/${email}`, {
+        headers: { Authorization: `Bearer ${t}` },
+      })
+      .then((res) => {
+        console.log(res)
+        setCartState(res.data.cart.products);
+      })
+      .catch((err) => console.error("Error fetching cart:", err));
+
+    // Fetch all products for mapping in orders
+    axios
+      .get(`${backend_url}/product/all`)
+      .then((res) => setAllProducts(res.data.products))
+      .catch((err) => console.error("Error fetching all products:", err));
+
+    
 
     // Fetch orders
     axios
@@ -113,6 +137,7 @@ export default function UserDashboard() {
         headers: { Authorization: `Bearer ${t}` },
       })
       .then((res) => {
+        console.log("ORD: ", res.data.orders)
         setOrders(res.data.orders);
         setOrdersLoading(false);
       })
@@ -150,7 +175,37 @@ export default function UserDashboard() {
         }
       );
     }
+
+    axios
+    .get(`${backend_url}/product/all`)
+    .then((res) => setAllProducts(res.data.products))
+    .catch((err) => console.error("Error fetching all products:", err));
   }, [router]);
+
+  const config = {
+    public_key: "FLWPUBK_TEST-e8cb656356783884c9d35ab16a58dbbd-X",
+    tx_ref: orderID,
+    amount: Number(calculateTotalPrice(cart)),
+    currency: "NGN",
+    payment_options: "card,mobilemoney,ussd",
+    customer: {
+      email: userEmail!,
+      phone_number: '',
+      name: orderID,
+    },
+    customizations: {
+      title: "Order",
+      description: "Order",
+      logo: "https://st2.depositphotos.com/4403291/7418/v/450/depositphotos_74189661-stock-illustration-online-shop-log.jpg",
+    },
+  };
+
+  const handleFlutterPayment = useFlutterwave(config);
+
+  // Get total of everything in cart
+  function calculateTotalPrice(cart: Product[]): number {
+    return cart.reduce((total, product) => total + product.price, 0);
+  }
 
   // Explore: filter businesses by search term
   const filteredBusinesses = businesses.filter((biz) => {
@@ -197,54 +252,114 @@ export default function UserDashboard() {
   };
 
   // Handler: Add product to cart
-  const handleAddToCart = (product: Product) => {
-    if (!userEmail) return;
-    const currentCart = getCart(userEmail);
-    const updatedCart = [...currentCart, product];
-    setCart(userEmail, updatedCart);
-    setCartState(updatedCart);
-    alert('Added to cart')
+  const handleAddToCart = async (product: Product) => {
+    if (!userEmail || !token) return;
+    try {
+      const res = await axios.post(
+        `${backend_url}/cart/add`,
+        { user: userEmail, product },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setCartState(res.data.cart.products);
+      setGlobalMessage("Product added to cart.");
+      alert('Product added to cart')
+    } catch (err: any) {
+      setGlobalError(err.response?.data?.error || err.message);
+      alert(err.response?.data?.error || err.message)
+    }
   };
 
   // Handler: Remove product from cart
-  const handleRemoveFromCart = (productId: string) => {
-    if (!userEmail) return;
-    const currentCart = getCart(userEmail);
-    const updatedCart = currentCart.filter((p: Product) => p.product_id !== productId);
-    setCart(userEmail, updatedCart);
-    setCartState(updatedCart);
-    alert('Removed from cart')
+  const handleRemoveFromCart = async (productId: string) => {
+    if (!userEmail || !token) return;
+    try {
+      const res = await axios.delete(`${backend_url}/cart/remove`, {
+        data: { user: userEmail, productId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCartState(res.data.cart.products);
+      setGlobalMessage("Product removed from cart.");
+      alert("Product removed from cart")
+    } catch (err: any) {
+      setGlobalError(err.response?.data?.error || err.message);
+      alert(err.response?.data?.error || err.message)
+    }
+  };
+
+  const handleSuccess = () => {
+    handleCheckout()
   };
 
   // Handler: Checkout cart – create orders grouped by business
   const handleCheckout = async () => {
-    if (!userEmail || cart.length === 0) return;
+    if (!userEmail || cart.length === 0 || !token) return;
   
-    // Build productOrders array from cart items
+    // Build an array of productOrders, where each item has the business_owned and product_id
     const productOrders = cart.map((p: Product) => ({
-      product_id: p.product_id,
       business_owned: p.business_owned,
+      product_id: p.product_id,
     }));
   
     try {
+      // Create orders using the backend route.
       await axios.post(
         `${backend_url}/order/create`,
         {
           customer: userEmail,
           productOrders,
           collection_method: "onsite",
-          customer_notes: [],
+          customer_notes: orderNotes,
         },
-        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-      // Clear cart on success
-      setCart(userEmail, []);
+  
+      // Clear the cart after orders are placed
+      await axios.delete(`${backend_url}/cart/clear/${userEmail}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setCartState([]);
       setGlobalMessage("Order placed successfully.");
+  
+      // Refresh orders
+      const ordersRes = await axios.get(`${backend_url}/order/user/${userEmail}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrders(ordersRes.data.orders);
     } catch (err: any) {
       setGlobalError(err.response?.data?.error || err.message);
     }
+    finally{
+      window.location.reload()
+    }
   };
+
+  // Build a mapping from product_id to product name
+  const productMap = allProducts.reduce((acc, product) => {
+    acc[product.product_id] = product.name;
+    return acc;
+  }, {} as { [key: string]: string });
+  
+  // Group orders by order id and then by business
+  const groupedOrders = orders.reduce((acc: any, order: any) => {
+    if (!acc[order.order_id]) {
+      acc[order.order_id] = {};
+    }
+    if (!acc[order.order_id][order.business_owned]) {
+      acc[order.order_id][order.business_owned] = [];
+    }
+    acc[order.order_id][order.business_owned].push(order);
+    return acc;
+  }, {});
 
   // Handler: Search products by tags
   const handleProductSearch = async () => {
@@ -467,7 +582,7 @@ export default function UserDashboard() {
         {/* Cart Tab */}
         {activeTab === "cart" && (
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">My Cart</h2>
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">My Cart - ₦{calculateTotalPrice(cart).toLocaleString()}</h2>
             {cart.length === 0 ? (
               <p>Your cart is empty.</p>
             ) : (
@@ -496,36 +611,101 @@ export default function UserDashboard() {
                     </button>
                   </div>
                 ))}
+                <div className="w-full flex flex-col sm:flex-row justify-end items-end sm:items-center">
+                  <textarea 
+                  name="notes" 
+                  id="notes"
+                  placeholder="Enter notes for the business. If you want a delivery, your address, etc."
+                  cols={50}
+                  rows={2}
+                  value={currentNote} 
+                  onChange={(e) => setCurrentNote(e.target.value)}
+                  className="bg-white py-3 sm:py-2 px-2 text-sm w-[100%] sm:w-auto text-black"
+                  />
+                  <button
+                  onClick={() => {setOrderNotes([...orderNotes, currentNote]); setCurrentNote('')}}
+                  className="bg-green-500 text-white px-4 py-4 rounded-lg h-fit ml-4 mt-4 sm:mt-0">
+                    Add Note
+                  </button>
+                </div>
                 <button
-                  onClick={handleCheckout}
+                  onClick={() => {
+                    handleFlutterPayment({
+                      callback: (response) => {
+                        console.log(response);
+                        if (response.status === "successful") {
+                          handleSuccess();
+                        } else {
+                          console.error("Transaction failed:", response);
+                        }
+                        closePaymentModal(); // this will close the modal programmatically
+                      },
+                      onClose: () => {},
+                    });
+                  }}
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
                 >
                   Checkout
                 </button>
+                {orderNotes.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {orderNotes.map((tag, index) => (
+                      <div key={index} className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-md text-sm flex items-center gap-1">
+                        <span>{tag}</span>
+                        <button type="button" onClick={() => setOrderNotes(orderNotes.filter((t) => t !== tag))}>
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Orders Tab */}
+        {/* Orders Section */}
         {activeTab === "orders" && (
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-4">My Orders</h2>
             {ordersLoading ? (
               <p>Loading orders...</p>
-            ) : orders.length === 0 ? (
+            ) : Object.keys(groupedOrders).length === 0 ? (
               <p>No orders found.</p>
             ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <div key={order.order_id} className="bg-white dark:bg-gray-700 p-4 rounded-md shadow">
-                    <p><strong>Order ID:</strong> {order.order_id}</p>
-                    <p><strong>Status:</strong> {order.status.join(", ")}</p>
-                    <p><strong>Products:</strong> {order.product_list.join(", ")}</p>
-                    <p><strong>Collection Method:</strong> {order.collection_method}</p>
-                  </div>
-                ))}
-              </div>
+              Object.entries(groupedOrders).reverse().map(([orderId, bizGroups]: [string, any]) => (
+                <div key={orderId} className="bg-white dark:bg-gray-700 p-4 rounded-md shadow mb-6">
+                  <p className="font-bold">Order ID: {orderId}</p>
+                  {Object.entries(bizGroups).map(([bizEmail, orderArray]: [string, any]) => (
+                    <div key={bizEmail} className="mt-4 border-t pt-4">
+                      <p className="text-sm font-semibold">Business: {bizEmail}</p>
+                      {orderArray.map((order: any, idx: number) => {
+                        // Group products and count duplicates
+                        const productCount = order.product_list.reduce((acc: { [key: string]: number }, prodId: string) => {
+                          acc[prodId] = (acc[prodId] || 0) + 1;
+                          return acc;
+                        }, {} as { [key: string]: number });
+                        return (
+                          <div key={idx} className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                            <p>
+                              <strong>Status:</strong> {order.status.join(", ")}
+                            </p>
+                            <p>
+                              <strong>Products:</strong>{" "}
+                              {Object.entries(productCount)
+                                .map(([prodId, count]) => `${productMap[prodId] || prodId} (${count})`)
+                                .join(", ")}
+                            </p>
+                            <p>
+                              {/* <strong>Collection Method:</strong> {order.collection_method} */}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ))
             )}
           </div>
         )}

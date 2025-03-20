@@ -310,6 +310,7 @@ export default function UserDashboard() {
       await axios.post(
         `${backend_url}/order/create`,
         {
+          order_id: orderID,
           customer: userEmail,
           productOrders,
           collection_method: "onsite",

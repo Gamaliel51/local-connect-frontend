@@ -13,16 +13,25 @@ const categories = [
 
 export default function CategoryIndex() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-800">
+    <div className="min-h-screen mt-20 bg-gradient-to-br from-blue-50 to-white">
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
-          Categories
-        </h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold text-blue-900">
+            All Categories
+          </h1>
+          <Link 
+            href="/" 
+            className="text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Back to Home
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {categories.map((category) => (
             <Link key={category} href={`/categories/${category}`}>
-              <div className="cursor-pointer bg-gray-200 dark:bg-gray-700 rounded-lg p-8 flex flex-col items-center justify-center hover:shadow-lg transition duration-200">
-                <h2 className="text-2xl font-semibold text-primary-800 dark:text-white">
+              <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center transform transition duration-300 hover:-translate-y-2 hover:shadow-2xl cursor-pointer hover:bg-blue-50">
+                <h2 className="text-xl font-semibold text-blue-900 text-center">
                   {category}
                 </h2>
               </div>

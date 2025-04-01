@@ -3,28 +3,79 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { backend_url, Business, Product, imageLoader } from "@/utils/data";
+import type { Map } from "leaflet";
 
-// Dynamically import react-leaflet components to disable SSR
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
-const Polyline = dynamic(() => import("react-leaflet").then((mod) => mod.Polyline), { ssr: false });
+// Fix window is not defined errors
+const MapContainer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Popup),
+  { ssr: false }
+);
 
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+const hideRoutingCSS = `
+  .leaflet-routing-container {
+    display: none !important;
+  }
+`;
 
-// Fix default marker icon issues
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "/marker-1.png",
-  iconUrl: "/marker-1.png",
-  shadowUrl: "/marker-shadow.png",
-});
+// Fix useMap hook implementation
+const Routing = dynamic(
+  () => {
+    const { useMap } = require("react-leaflet");
+    const L = require("leaflet");
+    require("leaflet-routing-machine");
+    
+    return Promise.resolve(({ userPos, businessPos }: { 
+      userPos: [number, number];
+      businessPos: [number, number];
+    }) => {
+      const map = useMap();
+      
+      useEffect(() => {
+        if (!map) return;
+
+        const routingControl = L.Routing.control({
+          waypoints: [
+            L.latLng(userPos[0], userPos[1]),
+            L.latLng(businessPos[0], businessPos[1])
+          ],
+          lineOptions: { styles: [{ color: "#2563eb", weight: 4 }] },
+          plan: false,
+          createMarker: () => null,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: true,
+          showAlternatives: false
+        }).addTo(map);
+
+        return () => {
+          map.removeControl(routingControl);
+        };
+      }, [map, userPos, businessPos]);
+
+      return null;
+    });
+  },
+  { ssr: false }
+);
 
 export default function CategoryPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { categoryname } = useParams();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +84,26 @@ export default function CategoryPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Get user's current location and fetch businesses by category
+  // Initialize Leaflet markers safely
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const L = require("leaflet");
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "/marker-1.png",
+        iconUrl: "/marker-1.png",
+        shadowUrl: "/marker-shadow.png",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (businesses.length > 0 && searchParams.has('business')) {
+      const businessEmail = searchParams.get('business');
+      const business = businesses.find(b => b.email === businessEmail);
+      if (business) setSelectedBusiness(business);
+    }
+  }, [businesses, searchParams]);
+
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation && categoryname) {
       navigator.geolocation.getCurrentPosition(
@@ -64,9 +134,18 @@ export default function CategoryPage() {
     }
   }, [categoryname]);
 
-  // When a business is selected, fetch its products
+  const handleBusinessSelect = (business: Business) => {
+    setSelectedBusiness(business);
+    router.push(`?business=${business.email}`, { scroll: false });
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedBusiness(null);
+    router.push(`/categories/${categoryname}`, { scroll: false });
+  };
+
   useEffect(() => {
-    async function fetchProducts() {
+    const fetchProducts = async () => {
       if (selectedBusiness) {
         try {
           const response = await axios.get(
@@ -77,40 +156,33 @@ export default function CategoryPage() {
           console.error("Error fetching products:", err);
         }
       }
-    }
+    };
     fetchProducts();
   }, [selectedBusiness]);
 
-  // Calculate map center and marker positions when a business is selected.
-  let mapCenter: [number, number] | null = null;
-  let userPos: [number, number] | null = null;
-  let businessPos: [number, number] | null = null;
-  if (userLocation && selectedBusiness && selectedBusiness.location) {
-    const userLat = userLocation[1];
-    const userLon = userLocation[0];
-    const busLat = selectedBusiness.location[1];
-    const busLon = selectedBusiness.location[0];
-    mapCenter = [(userLat + busLat) / 2, (userLon + busLon) / 2];
-    userPos = [userLat, userLon];
-    businessPos = [busLat, busLon];
-  }
+ // Calculate positions for map
+  const userPos = userLocation ? [userLocation[1], userLocation[0]] as [number, number] : null;
+  const businessPos = selectedBusiness?.location ? 
+    [selectedBusiness.location[1], selectedBusiness.location[0]] as [number, number] : null;
 
   return (
-    <div>
-      {/* Businesses in Category Section */}
-      <div className="pt-16 relative bg-gradient-to-br from-primary-50 to-white dark:from-gray-800 dark:to-gray-900">
+    <div className="bg-gradient-to-br from-blue-50 to-white">
+      {/* Businesses Section */}
+      <div className="pt-16">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold text-primary-800 dark:text-white mb-8">
+          <h1 className="text-4xl font-bold text-blue-900 mb-8">
             {categoryname} Businesses Near You
           </h1>
-          {loading && <p className="text-center">Loading...</p>}
+          
+          {loading && <p className="text-center text-gray-800">Loading...</p>}
           {error && <p className="text-center text-red-500">Error: {error}</p>}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {businesses.map((business) => (
               <div
                 key={business.email}
-                className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg overflow-hidden transform transition-all hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
-                onClick={() => setSelectedBusiness(business)}
+                className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
+                onClick={() => handleBusinessSelect(business)}
               >
                 <Image
                   src={business.profileImageUrl || "/placeholder.jpg"}
@@ -121,19 +193,14 @@ export default function CategoryPage() {
                   className="w-full h-64 object-cover"
                 />
                 <div className="p-6">
-                  <h3 className="text-xl font-semibold text-primary-800 dark:text-white">
+                  <h3 className="text-xl font-semibold text-blue-900">
                     {business.name}
                   </h3>
                   {business.about && (
-                    <p className="mt-2 text-primary-600">
-                      {business.about.length > 50
-                        ? business.about.slice(0, 50) + "..."
-                        : business.about}
+                    <p className="mt-2 text-gray-600">
+                      {business.about.slice(0, 50) + (business.about.length > 50 ? "..." : "")}
                     </p>
                   )}
-                  {/* <button className="mt-4 w-full bg-primary-500 text-white py-2 px-4 rounded-lg hover:bg-primary-600 transition-colors">
-                    Connect
-                  </button> */}
                 </div>
               </div>
             ))}
@@ -141,14 +208,29 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Map & Details Section for Selected Business */}
-      {selectedBusiness && userLocation && selectedBusiness.location && mapCenter && userPos && businessPos && (
+      {/* Map & Details Section */}
+      {selectedBusiness && userPos && businessPos && (
         <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-primary-800 dark:text-white mb-4">
-            Route to {selectedBusiness.name}
-          </h2>
-          <div className="w-full h-[450px] mb-8">
-            <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-blue-900">
+              Route to {selectedBusiness.name}
+            </h2>
+            <button
+              onClick={handleCloseDetails}
+              className="text-2xl text-gray-500 hover:text-blue-600 transition-colors"
+            >
+              ×
+            </button>
+          </div>
+          
+          {/* Map container */}
+          <div className="w-full h-[450px] mb-8 rounded-xl overflow-hidden shadow-lg">
+            <style>{hideRoutingCSS}</style>
+            <MapContainer 
+              center={userPos} 
+              zoom={13} 
+              style={{ height: "100%", width: "100%" }}
+            >
               <TileLayer
                 attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -159,106 +241,83 @@ export default function CategoryPage() {
               <Marker position={businessPos}>
                 <Popup>{selectedBusiness.name}</Popup>
               </Marker>
-              <Polyline positions={[userPos, businessPos]} color="blue" />
+              <Routing userPos={userPos} businessPos={businessPos} />
             </MapContainer>
           </div>
 
-          {/* Business Details Section */}
-          <div className="mb-8">
-            <h3 className="text-2xl font-bold text-primary-800 dark:text-white mb-4">
+          <div className="mb-8 bg-white p-6 rounded-xl shadow">
+            <h3 className="text-2xl font-bold text-blue-900 mb-4">
               Business Details
             </h3>
-            <p>
-              <strong>About:</strong> {selectedBusiness.about}
-            </p>
-            <p>
-              <strong>Address:</strong> {selectedBusiness.address}
-            </p>
-            <p>
-              <strong>Category:</strong> {selectedBusiness.category}
-            </p>
-            {selectedBusiness.tags && (
-              <p>
-                <strong>Tags:</strong>{" "}
-                {Array.isArray(selectedBusiness.tags)
-                  ? selectedBusiness.tags.join(", ")
-                  : selectedBusiness.tags}
-              </p>
-            )}
+            <div className="space-y-2 text-gray-700">
+              <p><strong>About:</strong> {selectedBusiness.about}</p>
+              <p><strong>Address:</strong> {selectedBusiness.address}</p>
+              <p><strong>Category:</strong> {selectedBusiness.category}</p>
+              {selectedBusiness.tags && (
+                <p><strong>Tags:</strong> {Array.isArray(selectedBusiness.tags) ? selectedBusiness.tags.join(", ") : selectedBusiness.tags}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Products Section */}
       {selectedBusiness && (
-        <div className="mb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-2xl font-bold text-primary-800 dark:text-white mb-4">
-            Products by {selectedBusiness.name}
-          </h3>
-          {products.length === 0 ? (
-            <p>No products found.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map((product) => (
-                <div
-                  key={product.product_id}
-                  className="bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden"
-                >
-                  <Image
-                    loader={() => imageLoader(product.imageUrl)}
-                    src={product.imageUrl || "/placeholder.jpg"}
-                    alt={product.name}
-                    width={400}
-                    height={300}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-4">
-                    <h4 className="font-bold text-primary-800 dark:text-white">
-                      {product.name}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        ₦{product.price.toLocaleString()}
-                    </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h3 className="text-2xl font-bold text-blue-900 mb-6">
+              Products by {selectedBusiness.name}
+            </h3>
+            {products.length === 0 ? (
+              <p className="text-gray-600">No products found.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <div
+                    key={product.product_id}
+                    className="bg-blue-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <Image
+                      loader={() => imageLoader(product.imageUrl)}
+                      src={product.imageUrl || "/placeholder.jpg"}
+                      alt={product.name}
+                      width={400}
+                      height={300}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="p-4">
+                      <h4 className="font-bold text-blue-900">{product.name}</h4>
+                      <p className="text-gray-600">₦{product.price.toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      <footer className="bg-primary-50 dark:bg-gray-800">
+      {/* Footer */}
+      <footer className="bg-blue-50 border-t border-gray-200">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <h3 className="text-lg font-semibold text-primary-800 dark:text-white mb-4">
-                About Us
-              </h3>
-              <p className="text-primary-700 dark:text-gray-300">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">About Us</h3>
+              <p className="text-gray-700">
                 Your premier destination for discovering local businesses.
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-primary-800 dark:text-white mb-4">
-                Quick Links
-              </h3>
-              <ul className="space-y-2 text-primary-700 dark:text-gray-300">
-                <li className="hover:text-primary-500 transition-colors">Home</li>
-                <li className="hover:text-primary-500 transition-colors">Shop</li>
-                <li className="hover:text-primary-500 transition-colors">Categories</li>
-                <li className="hover:text-primary-500 transition-colors">Contact</li>
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Quick Links</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li><Link href="/" className="hover:text-blue-600 transition-colors">Home</Link></li>
+                <li><Link href="/categories" className="hover:text-blue-600 transition-colors">Categories</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-primary-800 dark:text-white mb-4">
-                Contact Us
-              </h3>
-              <p className="text-primary-700 dark:text-gray-300">
-                Email: info@local-connect.com
-              </p>
-              <p className="text-primary-700 dark:text-gray-300">
-                Phone: +2348133932164
-              </p>
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Contact Us</h3>
+              <p className="text-gray-700">Email: info@local-connect.com</p>
+              <p className="text-gray-700">Phone: +234 813 393 2164</p>
             </div>
           </div>
         </div>

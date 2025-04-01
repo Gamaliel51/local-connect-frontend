@@ -6,9 +6,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { backend_url, Business, Product, imageLoader } from "@/utils/data";
-import type { Map } from "leaflet";
 
-// Fix window is not defined errors
+// Leaflet components with SSR disabled
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
@@ -26,45 +25,61 @@ const Popup = dynamic(
   { ssr: false }
 );
 
+// Leaflet configuration
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import "leaflet-routing-machine";
+import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
+
+// Fix leaflet marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "/marker-1.png",
+  iconUrl: "/marker-1.png",
+  shadowUrl: "/marker-shadow.png",
+});
+
 const hideRoutingCSS = `
   .leaflet-routing-container {
     display: none !important;
   }
 `;
 
-// Fix useMap hook implementation
+// Routing component
 const Routing = dynamic(
   () => {
     const { useMap } = require("react-leaflet");
     const L = require("leaflet");
-    require("leaflet-routing-machine");
     
     return Promise.resolve(({ userPos, businessPos }: { 
       userPos: [number, number];
       businessPos: [number, number];
     }) => {
       const map = useMap();
-      
+
       useEffect(() => {
-        if (!map) return;
+        if (!map || !userPos || !businessPos) return;
 
         const routingControl = L.Routing.control({
           waypoints: [
             L.latLng(userPos[0], userPos[1]),
             L.latLng(businessPos[0], businessPos[1])
           ],
-          lineOptions: { styles: [{ color: "#2563eb", weight: 4 }] },
-          plan: false,
-          createMarker: () => null,
+          router: L.Routing.osrmv1({
+            serviceUrl: "https://router.project-osrm.org/route/v1"
+          }),
+          lineOptions: {
+            styles: [{ color: "#2563eb", weight: 4 }],
+            extendToWaypoints: true,
+            missingRouteTolerance: 1
+          },
+          show: false,
           addWaypoints: false,
           draggableWaypoints: false,
-          fitSelectedRoutes: true,
-          showAlternatives: false
+          fitSelectedRoutes: true
         }).addTo(map);
 
-        return () => {
-          map.removeControl(routingControl);
-        };
+        return () => map.removeControl(routingControl);
       }, [map, userPos, businessPos]);
 
       return null;
@@ -84,18 +99,7 @@ export default function CategoryPage() {
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Initialize Leaflet markers safely
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const L = require("leaflet");
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "/marker-1.png",
-        iconUrl: "/marker-1.png",
-        shadowUrl: "/marker-shadow.png",
-      });
-    }
-  }, []);
-
+  // Load initial business from URL
   useEffect(() => {
     if (businesses.length > 0 && searchParams.has('business')) {
       const businessEmail = searchParams.get('business');
@@ -104,6 +108,7 @@ export default function CategoryPage() {
     }
   }, [businesses, searchParams]);
 
+  // Fetch businesses
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation && categoryname) {
       navigator.geolocation.getCurrentPosition(
@@ -134,6 +139,7 @@ export default function CategoryPage() {
     }
   }, [categoryname]);
 
+  // Business selection handlers
   const handleBusinessSelect = (business: Business) => {
     setSelectedBusiness(business);
     router.push(`?business=${business.email}`, { scroll: false });
@@ -144,6 +150,7 @@ export default function CategoryPage() {
     router.push(`/categories/${categoryname}`, { scroll: false });
   };
 
+  // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
       if (selectedBusiness) {
@@ -160,45 +167,47 @@ export default function CategoryPage() {
     fetchProducts();
   }, [selectedBusiness]);
 
- // Calculate positions for map
+  // Position conversions
   const userPos = userLocation ? [userLocation[1], userLocation[0]] as [number, number] : null;
   const businessPos = selectedBusiness?.location ? 
     [selectedBusiness.location[1], selectedBusiness.location[0]] as [number, number] : null;
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-white">
-      {/* Businesses Section */}
-      <div className="pt-16">
-        <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold text-blue-900 mb-8">
-            {categoryname} Businesses Near You
+    <div className="bg-gradient-to-br from-blue-50 to-white min-h-screen">
+      {/* Business List Section */}
+      <div className="pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-4xl font-bold text-blue-900 mb-8 text-center">
+            {decodeURIComponent(categoryname as string)} Businesses
           </h1>
-          
-          {loading && <p className="text-center text-gray-800">Loading...</p>}
-          {error && <p className="text-center text-red-500">Error: {error}</p>}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+
+          {loading && <p className="text-center text-blue-600">Loading businesses...</p>}
+          {error && <p className="text-center text-red-500">{error}</p>}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {businesses.map((business) => (
               <div
                 key={business.email}
-                className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
                 onClick={() => handleBusinessSelect(business)}
               >
-                <Image
-                  src={business.profileImageUrl || "/placeholder.jpg"}
-                  alt={business.name}
-                  loader={() => imageLoader(business.profileImageUrl)}
-                  width={400}
-                  height={300}
-                  className="w-full h-64 object-cover"
-                />
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-blue-900">
+                <div className="relative h-48 w-full">
+                  <Image
+                    src={business.profileImageUrl || "/placeholder.jpg"}
+                    alt={business.name}
+                    loader={business.profileImageUrl ? () => imageLoader(business.profileImageUrl) : undefined}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="p-4">
+                  <h3 className="text-xl font-semibold text-blue-900 mb-2">
                     {business.name}
                   </h3>
                   {business.about && (
-                    <p className="mt-2 text-gray-600">
-                      {business.about.slice(0, 50) + (business.about.length > 50 ? "..." : "")}
+                    <p className="text-gray-600 text-sm line-clamp-3">
+                      {business.about}
                     </p>
                   )}
                 </div>
@@ -208,89 +217,88 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Map & Details Section */}
+      {/* Selected Business Section */}
       {selectedBusiness && userPos && businessPos && (
-        <div className="max-w-7xl mx-auto my-8 px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-blue-900">
-              Route to {selectedBusiness.name}
-            </h2>
-            <button
-              onClick={handleCloseDetails}
-              className="text-2xl text-gray-500 hover:text-blue-600 transition-colors"
-            >
-              ×
-            </button>
-          </div>
-          
-          {/* Map container */}
-          <div className="w-full h-[450px] mb-8 rounded-xl overflow-hidden shadow-lg">
-            <style>{hideRoutingCSS}</style>
-            <MapContainer 
-              center={userPos} 
-              zoom={13} 
-              style={{ height: "100%", width: "100%" }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <Marker position={userPos}>
-                <Popup>You are here</Popup>
-              </Marker>
-              <Marker position={businessPos}>
-                <Popup>{selectedBusiness.name}</Popup>
-              </Marker>
-              <Routing userPos={userPos} businessPos={businessPos} />
-            </MapContainer>
-          </div>
-
-          <div className="mb-8 bg-white p-6 rounded-xl shadow">
-            <h3 className="text-2xl font-bold text-blue-900 mb-4">
-              Business Details
-            </h3>
-            <div className="space-y-2 text-gray-700">
-              <p><strong>About:</strong> {selectedBusiness.about}</p>
-              <p><strong>Address:</strong> {selectedBusiness.address}</p>
-              <p><strong>Category:</strong> {selectedBusiness.category}</p>
-              {selectedBusiness.tags && (
-                <p><strong>Tags:</strong> {Array.isArray(selectedBusiness.tags) ? selectedBusiness.tags.join(", ") : selectedBusiness.tags}</p>
-              )}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-3xl font-bold text-blue-900 mb-2">
+                  {selectedBusiness.name}
+                </h2>
+                <p className="text-gray-600">{selectedBusiness.address}</p>
+              </div>
+              <button
+                onClick={handleCloseDetails}
+                className="text-2xl text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                ×
+              </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Products Section */}
-      {selectedBusiness && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h3 className="text-2xl font-bold text-blue-900 mb-6">
-              Products by {selectedBusiness.name}
-            </h3>
-            {products.length === 0 ? (
-              <p className="text-gray-600">No products found.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product) => (
-                  <div
-                    key={product.product_id}
-                    className="bg-blue-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                  >
-                    <Image
-                      loader={() => imageLoader(product.imageUrl)}
-                      src={product.imageUrl || "/placeholder.jpg"}
-                      alt={product.name}
-                      width={400}
-                      height={300}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-4">
-                      <h4 className="font-bold text-blue-900">{product.name}</h4>
-                      <p className="text-gray-600">₦{product.price.toLocaleString()}</p>
+            {/* Map Container */}
+            <div className="mb-8">
+              <style>{hideRoutingCSS}</style>
+              <div className="h-96 w-full rounded-lg overflow-hidden">
+                <MapContainer
+                  center={userPos}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={userPos}>
+                    <Popup>Your Location</Popup>
+                  </Marker>
+                  <Marker position={businessPos}>
+                    <Popup>{selectedBusiness.name}</Popup>
+                  </Marker>
+                  <Routing userPos={userPos} businessPos={businessPos} />
+                </MapContainer>
+              </div>
+            </div>
+
+            {/* Business Details */}
+            <div className="mb-8">
+              <h3 className="text-2xl font-semibold text-blue-900 mb-4">About</h3>
+              <p className="text-gray-600 leading-relaxed">
+                {selectedBusiness.about}
+              </p>
+            </div>
+
+            {/* Products */}
+            {products.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-semibold text-blue-900 mb-6">Products</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <div
+                      key={product.product_id}
+                      className="bg-blue-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                    >
+                      <div className="relative h-48 w-full">
+                        <Image
+                          src={product.imageUrl || "/placeholder.jpg"}
+                          alt={product.name}
+                          loader={product.imageUrl ? () => imageLoader(product.imageUrl) : undefined}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h4 className="font-semibold text-blue-900 mb-2">
+                          {product.name}
+                        </h4>
+                        <p className="text-gray-600">
+                          ₦{product.price.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -298,26 +306,34 @@ export default function CategoryPage() {
       )}
 
       {/* Footer */}
-      <footer className="bg-blue-50 border-t border-gray-200">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+      <footer className="bg-blue-50 border-t border-blue-100 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <h3 className="text-lg font-semibold text-blue-900 mb-4">About Us</h3>
-              <p className="text-gray-700">
-                Your premier destination for discovering local businesses.
+              <p className="text-gray-600">
+                Connecting communities with local businesses
               </p>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-blue-900 mb-4">Quick Links</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li><Link href="/" className="hover:text-blue-600 transition-colors">Home</Link></li>
-                <li><Link href="/categories" className="hover:text-blue-600 transition-colors">Categories</Link></li>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/" className="text-gray-600 hover:text-blue-600 transition-colors">
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/categories" className="text-gray-600 hover:text-blue-600 transition-colors">
+                    Categories
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-blue-900 mb-4">Contact Us</h3>
-              <p className="text-gray-700">Email: info@local-connect.com</p>
-              <p className="text-gray-700">Phone: +234 813 393 2164</p>
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Contact</h3>
+              <p className="text-gray-600">support@localconnect.com</p>
+              <p className="text-gray-600">+234 800 000 0000</p>
             </div>
           </div>
         </div>

@@ -15,6 +15,7 @@ export default function RegisterBusiness() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [about, setAbout] = useState("");
   const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
   const [category, setCategory] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -59,6 +60,7 @@ export default function RegisterBusiness() {
     formData.append("password", password);
     formData.append("about", about);
     formData.append("address", address);
+    formData.append("phone", phone);
     formData.append("location", JSON.stringify(location));
     formData.append("category", category);
     formData.append("tags", JSON.stringify(tags));
@@ -176,6 +178,19 @@ export default function RegisterBusiness() {
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>

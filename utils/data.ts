@@ -10,6 +10,7 @@ export interface Business {
     name: string;
     about?: string;
     address?: string;
+    phone?: string;
     // Assuming location is an array of two floats: [longitude, latitude]
     location?: [number, number];
     category?: string;

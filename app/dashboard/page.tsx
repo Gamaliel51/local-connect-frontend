@@ -349,7 +349,7 @@ export default function UserDashboard() {
               />
             </div>
             {filteredBusinesses.length === 0 ? (
-              <p className="text-center">{loading ? 'Loading businesses...' : 'No businesses found.'}</p>
+              <p className="text-center text-gray-800">{loading ? 'Loading businesses...' : 'No businesses found.'}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {filteredBusinesses.map(biz => (
@@ -585,12 +585,12 @@ export default function UserDashboard() {
                         );
                         return (
                           <div key={idx} className="text-gray-600">
-                            <p><strong>Status:</strong> {order.status.join(", ")}</p>
+                            <p><strong>Status:</strong> {order.status.join(" → ")}</p>
                             <p>
                               <strong>Products:</strong>{" "}
                               {Object.entries(productCount)
                                 .map(([prodId, count]) => `${productMap[prodId] || prodId} (${count})`)
-                                .join(", ")}
+                                .join(" | ")}
                             </p>
                           </div>
                         );
@@ -668,6 +668,7 @@ export default function UserDashboard() {
               <div className="space-y-4">
                 <p className="text-gray-600"><strong>About:</strong> {selectedBusiness.about}</p>
                 <p className="text-gray-600"><strong>Address:</strong> {selectedBusiness.address}</p>
+                <p className="text-gray-600"><strong>Phone:</strong> {selectedBusiness.phone}</p>
                 <p className="text-gray-600"><strong>Category:</strong> {selectedBusiness.category}</p>
                 {selectedBusiness.tags && (
                   <p className="text-gray-600">
@@ -687,7 +688,7 @@ export default function UserDashboard() {
                 </div>
                 <h3 className="text-xl font-bold text-blue-900 mb-4">Products</h3>
                 {businessProducts.length === 0 ? (
-                  <p>No products found.</p>
+                  <p className="text-gray-800">No products found.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {businessProducts.map(prod => (

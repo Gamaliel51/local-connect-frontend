@@ -224,7 +224,7 @@ export default function CategoryPage() {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-3xl font-bold text-blue-900 mb-2">
-                  {selectedBusiness.name}
+                  {selectedBusiness.name} - {selectedBusiness.email} | {selectedBusiness.phone}
                 </h2>
                 <p className="text-gray-600">{selectedBusiness.address}</p>
               </div>

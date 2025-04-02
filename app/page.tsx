@@ -250,6 +250,9 @@ export default function Home() {
               <strong>Address:</strong> {selectedBusiness.address}
             </p>
             <p className="mb-2 text-gray-700">
+              <strong>Phone:</strong> {selectedBusiness.phone}
+            </p>
+            <p className="mb-2 text-gray-700">
               <strong>Category:</strong> {selectedBusiness.category}
             </p>
             {selectedBusiness.tags && (

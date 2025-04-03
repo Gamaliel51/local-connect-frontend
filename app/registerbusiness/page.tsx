@@ -138,6 +138,8 @@ export default function RegisterBusiness() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+                    title="Minimum 8 characters, at least one uppercase letter, one lowercase letter, one number, and one special character"
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
@@ -150,6 +152,8 @@ export default function RegisterBusiness() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+                    title="Minimum 8 characters, at least one uppercase letter, one lowercase letter, one number, and one special character"
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />

@@ -88,6 +88,8 @@ export default function SignUp() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+              title="Minimum 8 characters, at least one uppercase letter, one lowercase letter, one number, and one special character"
               className="w-full px-3 py-2 rounded-md border border-gray-300 bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             />
@@ -103,6 +105,8 @@ export default function SignUp() {
               id="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+              title="Minimum 8 characters, at least one uppercase letter, one lowercase letter, one number, and one special character"
               className="w-full px-3 py-2 rounded-md border border-gray-300 bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             />

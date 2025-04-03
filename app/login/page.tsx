@@ -76,7 +76,7 @@ export default function UserLogin() {
       </form>
       <p className="text-sm text-blue-700 mt-4">
         Don't have an account?{" "}
-        <Link href="/user/signup" className="text-blue-500 hover:text-blue-600">
+        <Link href="/register" className="text-blue-500 hover:text-blue-600">
           Sign Up
         </Link>
       </p>

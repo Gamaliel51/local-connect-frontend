@@ -112,8 +112,48 @@ export default function Home() {
 
   return (
     <div className="bg-white text-gray-800">
+      {/* Hero Section*/}
+      <section className="bg-blue-600 h-[90vh] py-20 mt-20 relative">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="md:w-1/2 mb-8 md:mb-0">
+              <h1 className="text-white font-bold text-5xl leading-tight mb-6">
+                Find & Explore with Businesses Right next to you
+              </h1>
+              <p className="text-white text-xl mb-8">
+                Discover top-rated shops, restaurants, and services in your community. Experience personalized connections and support local growth.
+              </p>
+              <a
+                href="/register"
+                className="px-6 py-3 bg-white text-blue-600 font-bold rounded-full hover:bg-blue-300 transition duration-200"
+              >
+                Sign up
+              </a>
+            </div>
+            <div className="md:w-1/2">
+              <Image
+                src="https://rin.org.uk/resource/resmgr/nav21/nav21_map.png"
+                alt="Local Connect connecting users to nearby businesses"
+                width={600}
+                height={400}
+                className="w-full rounded-lg shadow-lg"
+                unoptimized
+              />
+            </div>
+          </div>
+        </div>
+        <div className="absolute sm:bottom-14 bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce">
+            <a href="#explore" className="cursor-pointer">
+               <p className="w-28 mx-auto text-center text-white">Explore Now</p>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+            </a>
+        </div>
+      </section>
+
       {/* Businesses Section */}
-      <div className="pt-16 bg-gradient-to-br from-blue-50 to-white">
+      <div id="explore" className="pt-16 bg-gradient-to-br from-blue-50 to-white">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
             <input
@@ -137,16 +177,48 @@ export default function Home() {
                 </Link>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <Link href="/categories/Restaurants" className="bg-gray-100 p-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                <Link href="/categories/Restaurants" className="bg-gray-100 py-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                  <Image
+                    src="https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=600"
+                    alt="Local Connect connecting users to nearby businesses"
+                    width={300}
+                    height={200}
+                    className="w-8/12 mx-auto rounded-lg shadow-lg mb-4"
+                    unoptimized
+                  />
                   Restaurants
                 </Link>
-                <Link href="/categories/Retail" className="bg-gray-100 p-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                <Link href="/categories/Retail" className="bg-gray-100 py-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                  <Image
+                    src="https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cmV0YWlsJTIwc3RvcmV8ZW58MHx8MHx8fDA%3D"
+                    alt="Local Connect connecting users to nearby businesses"
+                    width={300}
+                    height={200}
+                    className="w-8/12 mx-auto rounded-lg shadow-lg mb-4"
+                    unoptimized
+                  />
                   Retail
                 </Link>
-                <Link href="/categories/Fashion" className="bg-gray-100 p-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                <Link href="/categories/Fashion" className="bg-gray-100 py-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                  <Image
+                    src="https://img.freepik.com/free-photo/shop-clothing-clothes-shop-hanger-modern-shop-boutique_1150-8886.jpg?semt=ais_hybrid&w=740"
+                    alt="Local Connect connecting users to nearby businesses"
+                    width={300}
+                    height={200}
+                    className="w-8/12 mx-auto rounded-lg shadow-lg mb-4"
+                    unoptimized
+                  />
                   Fashion
                 </Link>
-                <Link href="/categories/Services" className="bg-gray-100 p-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                <Link href="/categories/Services" className="bg-gray-100 py-4 rounded-lg text-center hover:bg-blue-50 transition-colors">
+                  <Image
+                    src="https://media.istockphoto.com/id/1387250100/photo/a-happy-customer-paying-at-checkout-with-credit-card-in-supermarket.jpg?s=612x612&w=0&k=20&c=HvOOgZLEtpv9StMXoJteDdWZW1cjH0NJi6K61_DoZxk="
+                    alt="Local Connect connecting users to nearby businesses"
+                    width={300}
+                    height={200}
+                    className="w-8/12 mx-auto rounded-lg shadow-lg mb-4"
+                    unoptimized
+                  />
                   Services
                 </Link>
               </div>

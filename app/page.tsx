@@ -123,12 +123,11 @@ export default function Home() {
               <p className="text-white text-xl mb-8">
                 Discover top-rated shops, restaurants, and services in your community. Experience personalized connections and support local growth.
               </p>
-              <a
-                href="/register"
-                className="px-6 py-3 bg-white text-blue-600 font-bold rounded-full hover:bg-blue-300 transition duration-200"
-              >
-                Sign up
-              </a>
+              <Link href="/register" rel="noopener noreferrer"
+                  className="relative w-36 flex items-center justify-center px-6 py-3 bg-white hover:bg-blue-900 hover:text-white text-blue-900 text-lg font-semibold rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200">
+                  <span className="absolute inset-0 rounded-full bg-white opacity-50 animate-ping"></span>
+                  <span className="relative z-10 pr-2">Sign Up</span>
+              </Link>
             </div>
             <div className="md:w-1/2">
               <Image

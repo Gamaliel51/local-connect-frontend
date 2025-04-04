@@ -24,13 +24,15 @@ export default function Navbar() {
       <div className="container mx-auto flex h-20 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center shrink-0">
-          <Image 
-            className="w-10 h-10 mx-4 rounded-full" 
-            height={100} 
-            width={100} 
-            src="/logo.png" 
-            alt="Local-Connect logo"
-          />
+          <div className='w-30 h-20 flex items-center mr-4 overflow-hidden'>
+            <Image 
+              className="w-30 h-30 rounded-full" 
+              height={100} 
+              width={100} 
+              src="/logo.png" 
+              alt="Local-Connect logo"
+            />
+          </div>
           <span className="md:flex text-2xl mt-0.5 font-bold text-blue-900">
             Local-Connect
           </span>
